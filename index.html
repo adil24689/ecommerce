@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>E-commerce Admin Panel — Phase 1</title>
+  <!-- Bootstrap & Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root{
+      --sidebar-w: 260px;
+    }
+    body{ background:#f6f7fb; }
+    /* Layout */
+    .layout{ display:flex; min-height:100vh; }
+    .sidebar{ width:var(--sidebar-w); background:#0f172a; color:#e2e8f0; position:relative; z-index:1040; }
+    .sidebar .brand{ font-weight:700; letter-spacing:.5px; }
+    .sidebar a{ color:#cbd5e1; text-decoration:none; }
+    .sidebar a.active, .sidebar a:hover{ color:#fff; }
+    .sidebar .nav-link{ display:flex; align-items:center; gap:.75rem; padding:.65rem 1rem; border-radius:.75rem; }
+    .sidebar .nav-link.active{ background:#1e293b; color:#fff; }
+
+    .content{ flex:1; }
+    .content-inner{ padding:1rem; }
+
+    /* Mobile sidebar */
+    @media (max-width: 991.98px){
+      .sidebar{ position:fixed; left:-100%; top:0; bottom:0; width:var(--sidebar-w); transition:left .25s ease; }
+      body.sidebar-open .sidebar{ left:0; }
+      body.sidebar-open .backdrop{ opacity:.4; visibility:visible; }
+    }
+    .backdrop{ position:fixed; inset:0; background:#000; opacity:0; visibility:hidden; transition:opacity .25s ease, visibility .25s ease; z-index:1030; }
+
+    /* Cards */
+    .kpi-card{ border:0; border-radius:1rem; box-shadow:0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.1); }
+    .table-card{ border-radius:1rem; overflow:hidden; border:0; box-shadow:0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.1); }
+
+    /* Image preview grid */
+    .preview-grid{ display:flex; gap:.5rem; flex-wrap:wrap; }
+    .preview-grid img{ width:64px; height:64px; object-fit:cover; border-radius:.5rem; border:1px solid #e5e7eb; }
+
+    /* Utility */
+    .form-hint{ font-size:.85rem; color:#64748b; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar p-3 d-flex flex-column">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <i class="fa-solid fa-store text-white fs-4"></i>
+        <span class="brand text-white fs-5">ShopAdmin</span>
+      </div>
+      <hr class="border-secondary-subtle">
+      <nav class="flex-grow-1">
+        <a href="#" class="nav-link active" data-view="dashboard"><i class="fa-solid fa-gauge"></i>Dashboard</a>
+        <a href="#" class="nav-link" data-view="products"><i class="fa-solid fa-box"></i>Products</a>
+        <a href="#" class="nav-link" data-view="orders"><i class="fa-solid fa-receipt"></i>Orders</a>
+        <a href="#" class="nav-link" data-view="customers"><i class="fa-solid fa-user-group"></i>Customers</a>
+      </nav>
+      <div class="mt-auto small text-secondary">v1.0 · Phase 1</div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="content">
+      <!-- Top Navbar -->
+      <header class="bg-white border-bottom sticky-top">
+        <div class="container-fluid py-2">
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-outline-secondary d-lg-none" id="btnSidebar"><i class="fa-solid fa-bars"></i></button>
+            <form class="ms-auto me-3 d-none d-md-block" role="search" onsubmit="event.preventDefault()">
+              <div class="input-group">
+                <span class="input-group-text bg-transparent"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input class="form-control" id="globalSearch" placeholder="Search products, orders, customers…">
+              </div>
+            </form>
+            <button class="btn btn-light position-relative"><i class="fa-regular fa-bell"></i><span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notifCount">0</span></button>
+            <div class="dropdown">
+              <button class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown"><i class="fa-regular fa-circle-user me-1"></i> Admin</button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="#">Profile</a></li>
+                <li><a class="dropdown-item" href="#">Settings</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#">Logout</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="content-inner container-fluid">
+        <!-- DASHBOARD VIEW -->
+        <section id="view-dashboard">
+          <div class="row g-3 mb-3">
+            <div class="col-6 col-md-3">
+              <div class="card kpi-card p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <div class="text-secondary small">Total Orders</div>
+                    <div class="fs-4 fw-bold" id="kpiOrders">0</div>
+                  </div>
+                  <i class="fa-solid fa-bag-shopping fs-3 text-secondary"></i>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="card kpi-card p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <div class="text-secondary small">Revenue</div>
+                    <div class="fs-4 fw-bold" id="kpiRevenue">৳0</div>
+                  </div>
+                  <i class="fa-solid fa-sack-dollar fs-3 text-secondary"></i>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="card kpi-card p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <div class="text-secondary small">Products</div>
+                    <div class="fs-4 fw-bold" id="kpiProducts">0</div>
+                  </div>
+                  <i class="fa-solid fa-box fs-3 text-secondary"></i>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="card kpi-card p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <div class="text-secondary small">Customers</div>
+                    <div class="fs-4 fw-bold" id="kpiCustomers">0</div>
+                  </div>
+                  <i class="fa-solid fa-user-group fs-3 text-secondary"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-12 col-lg-7">
+              <div class="card table-card p-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <h6 class="mb-0">Sales (Last 7 days)</h6>
+                </div>
+                <canvas id="salesChart" height="120"></canvas>
+              </div>
+            </div>
+            <div class="col-12 col-lg-5">
+              <div class="card table-card">
+                <div class="p-3 d-flex align-items-center justify-content-between">
+                  <h6 class="mb-0">Recent Orders</h6>
+                  <a href="#" class="small" data-view="orders">View all</a>
+                </div>
+                <div class="table-responsive">
+                  <table class="table mb-0 align-middle">
+                    <thead class="table-light">
+                      <tr>
+                        <th>#</th><th>Customer</th><th>Date</th><th>Total</th><th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="recentOrdersTbody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- PRODUCTS VIEW -->
+        <section id="view-products" class="d-none">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Products</h5>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-secondary" id="btnManageCategories"><i class="fa-solid fa-tags me-1"></i> Categories</button>
+              <button class="btn btn-primary" id="btnAddProduct"><i class="fa-solid fa-plus me-1"></i> Add Product</button>
+            </div>
+          </div>
+
+          <div class="card table-card">
+            <div class="p-3">
+              <div class="row g-2">
+                <div class="col-12 col-md-4">
+                  <input id="productSearch" class="form-control" placeholder="Search by name or SKU">
+                </div>
+                <div class="col-6 col-md-3">
+                  <select id="filterCategory" class="form-select"></select>
+                </div>
+                <div class="col-6 col-md-3">
+                  <select id="filterStock" class="form-select">
+                    <option value="">All Stock</option>
+                    <option value="in">In stock</option>
+                    <option value="out">Out of stock</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Product</th><th>SKU</th><th>Price</th><th>Stock</th><th>Category</th><th>Added</th><th></th>
+                  </tr>
+                </thead>
+                <tbody id="productsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ORDERS VIEW -->
+        <section id="view-orders" class="d-none">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Orders</h5>
+            <div class="d-flex gap-2">
+              <select id="filterOrderStatus" class="form-select">
+                <option value="">All Status</option>
+                <option>Pending</option>
+                <option>Shipped</option>
+                <option>Delivered</option>
+                <option>Cancelled</option>
+              </select>
+            </div>
+          </div>
+          <div class="card table-card">
+            <div class="table-responsive">
+              <table class="table align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>#</th><th>Customer</th><th>Date</th><th>Total</th><th>Status</th><th></th>
+                  </tr>
+                </thead>
+                <tbody id="ordersTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- CUSTOMERS VIEW -->
+        <section id="view-customers" class="d-none">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Customers</h5>
+          </div>
+          <div class="card table-card">
+            <div class="table-responsive">
+              <table class="table align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Spent</th><th></th>
+                  </tr>
+                </thead>
+                <tbody id="customersTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+  <div class="backdrop" id="backdrop"></div>
+
+  <!-- Product Modal -->
+  <div class="modal fade" id="productModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <form id="productForm">
+          <div class="modal-header">
+            <h5 class="modal-title" id="productModalTitle">Add Product</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="productId">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Name</label>
+                <input class="form-control" id="productName" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">SKU</label>
+                <input class="form-control" id="productSku" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Price (৳)</label>
+                <input type="number" min="0" class="form-control" id="productPrice" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Stock Qty</label>
+                <input type="number" min="0" class="form-control" id="productStock" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Category</label>
+                <select id="productCategory" class="form-select" required></select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Subcategory</label>
+                <select id="productSubcategory" class="form-select" required></select>
+              </div>
+              <div class="col-md-12">
+                <label class="form-label">Images</label>
+                <input type="file" id="productImages" class="form-control" accept="image/*" multiple>
+                <div class="form-hint mt-1">You can select multiple images. First image will be the cover.</div>
+                <div class="preview-grid mt-2" id="productPreview"></div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Manager Modal -->
+  <div class="modal fade" id="categoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Categories & Subcategories</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3 d-flex gap-2">
+            <input id="newCategoryName" class="form-control" placeholder="New category name">
+            <button class="btn btn-primary" id="btnAddCategory">Add</button>
+          </div>
+          <div id="categoriesList" class="list-group small"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Details Modal -->
+  <div class="modal fade" id="orderModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Order Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="orderDetails"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Details Modal -->
+  <div class="modal fade" id="customerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Customer Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="customerDetails"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ==== Simple Store (LocalStorage) =========================================
+    const store = {
+      get(key, fallback){
+        try{ return JSON.parse(localStorage.getItem(key)) ?? fallback; }catch(e){ return fallback; }
+      },
+      set(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
+    };
+
+    // ==== Seed Data for First Run ============================================
+    function seedIfNeeded(){
+      if(!localStorage.getItem('seeded')){
+        const categories = [
+          {id: crypto.randomUUID(), name:'Men', subs:[{id: crypto.randomUUID(), name:'T-Shirts'},{id: crypto.randomUUID(), name:'Jeans'}]},
+          {id: crypto.randomUUID(), name:'Women', subs:[{id: crypto.randomUUID(), name:'Dresses'},{id: crypto.randomUUID(), name:'Tops'}]},
+          {id: crypto.randomUUID(), name:'Accessories', subs:[{id: crypto.randomUUID(), name:'Bags'},{id: crypto.randomUUID(), name:'Watches'}]},
+        ];
+
+        // helper find sub by names
+        const findCat = (n) => categories.find(c=>c.name===n);
+        const findSub = (cat, n) => cat.subs.find(s=>s.name===n);
+
+        const prod1Cat = findCat('Men');
+        const prod1Sub = findSub(prod1Cat,'T-Shirts');
+        const prod2Cat = findCat('Women');
+        const prod2Sub = findSub(prod2Cat,'Dresses');
+
+        const products = [
+          { id: crypto.randomUUID(), name:'Classic Tee', sku:'MEN-TEE-001', price:950, stock:25, categoryId: prod1Cat.id, subcategoryId: prod1Sub.id, images:[], createdAt: Date.now() - 86400000*5 },
+          { id: crypto.randomUUID(), name:'Floral Dress', sku:'WMN-DRS-101', price:1990, stock:12, categoryId: prod2Cat.id, subcategoryId: prod2Sub.id, images:[], createdAt: Date.now() - 86400000*2 },
+        ];
+
+        const customers = [
+          { id: crypto.randomUUID(), name:'Anika Rahman', email:'anika@example.com', phone:'+8801712345678', address:'Dhaka', spent:3980, orders:2 },
+          { id: crypto.randomUUID(), name:'Hasan Ali', email:'hasan@example.com', phone:'+8801911223344', address:'Chittagong', spent:950, orders:1 },
+        ];
+
+        const orders = [
+          { id: crypto.randomUUID(), customerId: customers[0].id, date: Date.now()-86400000*1, status:'Delivered', items:[{productId: products[0].id, qty:1, price:950},{productId: products[1].id, qty:1, price:1990}], total: 2940 },
+          { id: crypto.randomUUID(), customerId: customers[1].id, date: Date.now()-86400000*3, status:'Pending', items:[{productId: products[0].id, qty:1, price:950}], total: 950 },
+        ];
+
+        store.set('categories', categories);
+        store.set('products', products);
+        store.set('customers', customers);
+        store.set('orders', orders);
+        localStorage.setItem('seeded', '1');
+      }
+    }
+
+    // ==== Utilities ===========================================================
+    const fmtBDT = (n) => `৳${Number(n||0).toLocaleString('bn-BD')}`;
+    const fmtDate = (ts) => new Date(ts).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+
+    function toast(msg, type='success'){
+      const wrap = document.createElement('div');
+      wrap.className = `position-fixed top-0 end-0 p-3`;
+      wrap.style.zIndex = 1080;
+      wrap.innerHTML = `<div class="toast align-items-center text-bg-${type} border-0 show" role="alert"><div class="d-flex"><div class="toast-body">${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
+      document.body.appendChild(wrap);
+      setTimeout(()=> wrap.remove(), 2500);
+    }
+
+    // ==== Global State ========================================================
+    let SALES_CHART = null;
+
+    // ==== Rendering: KPIs & Dashboard ========================================
+    function updateKPIs(){
+      const products = store.get('products', []);
+      const customers = store.get('customers', []);
+      const orders = store.get('orders', []);
+      const revenue = orders.reduce((s,o)=> s + (o.status!=='Cancelled'? o.total:0), 0);
+      document.getElementById('kpiProducts').textContent = products.length;
+      document.getElementById('kpiCustomers').textContent = customers.length;
+      document.getElementById('kpiOrders').textContent = orders.length;
+      document.getElementById('kpiRevenue').textContent = fmtBDT(revenue);
+      document.getElementById('notifCount').textContent = orders.filter(o=>o.status==='Pending').length;
+    }
+
+    function renderSalesChart(){
+      const ctx = document.getElementById('salesChart');
+      const orders = store.get('orders', []);
+      // last 7 days
+      const days = [...Array(7)].map((_,i)=>{
+        const d = new Date(); d.setDate(d.getDate() - (6-i)); d.setHours(0,0,0,0); return d;
+      });
+      const labels = days.map(d=> d.toLocaleDateString('en-GB',{day:'2-digit', month:'short'}));
+      const data = days.map(d=>{
+        const next = new Date(d); next.setDate(d.getDate()+1);
+        const sum = orders.filter(o=> o.date>=d.getTime() && o.date<next.getTime()).reduce((s,o)=> s + (o.status!=='Cancelled'?o.total:0), 0);
+        return sum;
+      });
+      if(SALES_CHART){ SALES_CHART.destroy(); }
+      SALES_CHART = new Chart(ctx, {
+        type:'line',
+        data:{ labels, datasets:[{ label:'Revenue', data, tension:.35, fill:true }] },
+        options:{ responsive:true, plugins:{ legend:{ display:false }}, scales:{ y:{ beginAtZero:true }}}
+      });
+    }
+
+    function renderRecentOrders(){
+      const orders = store.get('orders', []).sort((a,b)=> b.date - a.date).slice(0,5);
+      const customers = store.get('customers', []);
+      const tbody = document.getElementById('recentOrdersTbody');
+      tbody.innerHTML = orders.map(o=>{
+        const cust = customers.find(c=>c.id===o.customerId);
+        return `<tr>
+          <td>${o.id.slice(0,6)}</td>
+          <td>${cust?.name||'—'}</td>
+          <td>${fmtDate(o.date)}</td>
+          <td>${fmtBDT(o.total)}</td>
+          <td><span class="badge text-bg-${badgeForStatus(o.status)}">${o.status}</span></td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderDashboard(){
+      updateKPIs();
+      renderSalesChart();
+      renderRecentOrders();
+    }
+
+    // ==== Products ============================================================
+    function badgeForStatus(status){
+      return status==='Delivered' ? 'success' : status==='Shipped' ? 'primary' : status==='Pending' ? 'warning' : 'secondary';
+    }
+
+    function fillCategoryFilters(){
+      const categories = store.get('categories', []);
+      const sel = document.getElementById('filterCategory');
+      sel.innerHTML = `<option value="">All Categories</option>` + categories.map(c=> `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+
+    function renderProducts(){
+      const products = store.get('products', []);
+      const categories = store.get('categories', []);
+      const q = document.getElementById('productSearch').value.trim().toLowerCase();
+      const cat = document.getElementById('filterCategory').value;
+      const stock = document.getElementById('filterStock').value;
+      const filtered = products.filter(p=>{
+        const catOk = !cat || p.categoryId===cat;
+        const stockOk = !stock || (stock==='in' ? p.stock>0 : p.stock===0);
+        const qOk = !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
+        return catOk && stockOk && qOk;
+      });
+      const tbody = document.getElementById('productsTbody');
+      tbody.innerHTML = filtered.map(p=>{
+        const catName = categories.find(c=>c.id===p.categoryId)?.name||'—';
+        const img = (p.images?.[0]) ? `<img src="${p.images[0]}" class="me-2" style="width:36px;height:36px;object-fit:cover;border-radius:.35rem;border:1px solid #eee">` : `<span class='me-2 text-secondary'><i class="fa-regular fa-image"></i></span>`;
+        return `<tr>
+          <td>${img}${p.name}</td>
+          <td>${p.sku}</td>
+          <td>${fmtBDT(p.price)}</td>
+          <td>${p.stock>0? `<span class='badge text-bg-success'>${p.stock}</span>`: `<span class='badge text-bg-secondary'>0</span>`}</td>
+          <td>${catName}</td>
+          <td>${fmtDate(p.createdAt)}</td>
+          <td class="text-end">
+            <div class="btn-group">
+              <button class="btn btn-sm btn-outline-secondary" onclick="openProductModal('${p.id}')"><i class="fa-regular fa-pen-to-square"></i></button>
+              <button class="btn btn-sm btn-outline-danger" onclick="deleteProduct('${p.id}')"><i class="fa-regular fa-trash-can"></i></button>
+            </div>
+          </td>
+        </tr>`
+      }).join('');
+    }
+
+    function openProductModal(id=null){
+      const categories = store.get('categories', []);
+      const products = store.get('products', []);
+      const modalEl = document.getElementById('productModal');
+      const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+      const title = document.getElementById('productModalTitle');
+      const pid = document.getElementById('productId');
+      const name = document.getElementById('productName');
+      const sku = document.getElementById('productSku');
+      const price = document.getElementById('productPrice');
+      const stock = document.getElementById('productStock');
+      const cat = document.getElementById('productCategory');
+      const sub = document.getElementById('productSubcategory');
+      const preview = document.getElementById('productPreview');
+      const imagesInput = document.getElementById('productImages');
+
+      // Fill category options
+      cat.innerHTML = categories.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+
+      function refreshSubs(){
+        const c = categories.find(x=>x.id===cat.value);
+        sub.innerHTML = (c?.subs||[]).map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+      }
+      cat.onchange = refreshSubs;
+
+      preview.innerHTML = '';
+      imagesInput.value = '';
+      imagesInput.onchange = async (e)=>{
+        preview.innerHTML = '';
+        for(const file of e.target.files){
+          const url = await fileToDataURL(file);
+          const img = document.createElement('img'); img.src = url; preview.appendChild(img);
+        }
+      };
+
+      if(id){
+        const p = products.find(x=>x.id===id);
+        title.textContent = 'Edit Product';
+        pid.value = p.id; name.value = p.name; sku.value = p.sku; price.value = p.price; stock.value = p.stock; cat.value = p.categoryId; refreshSubs(); sub.value = p.subcategoryId;
+        preview.innerHTML = (p.images||[]).map(u=>`<img src='${u}'>`).join('');
+      }else{
+        title.textContent = 'Add Product';
+        pid.value = ''; name.value = ''; sku.value = ''; price.value = ''; stock.value = '0'; cat.selectedIndex = 0; refreshSubs();
+      }
+
+      modal.show();
+    }
+
+    async function fileToDataURL(file){
+      return new Promise((res,rej)=>{
+        const r = new FileReader(); r.onload = ()=> res(r.result); r.onerror = rej; r.readAsDataURL(file);
+      });
+    }
+
+    document.getElementById('productForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const id = document.getElementById('productId').value || crypto.randomUUID();
+      const name = document.getElementById('productName').value.trim();
+      const sku = document.getElementById('productSku').value.trim();
+      const price = Number(document.getElementById('productPrice').value);
+      const stock = Number(document.getElementById('productStock').value);
+      const categoryId = document.getElementById('productCategory').value;
+      const subcategoryId = document.getElementById('productSubcategory').value;
+      const fileInput = document.getElementById('productImages');
+
+      const products = store.get('products', []);
+      const existingIdx = products.findIndex(p=>p.id===id);
+      let images = existingIdx>-1 ? (products[existingIdx].images||[]) : [];
+      if(fileInput.files?.length){
+        images = [];
+        for(const f of fileInput.files){ images.push(await fileToDataURL(f)); }
+      }
+
+      const data = { id, name, sku, price, stock, categoryId, subcategoryId, images, createdAt: existingIdx>-1 ? products[existingIdx].createdAt : Date.now() };
+      if(existingIdx>-1) products[existingIdx] = data; else products.push(data);
+      store.set('products', products);
+      bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
+      toast('Product saved');
+      updateKPIs();
+      renderProducts();
+    });
+
+    function deleteProduct(id){
+      if(!confirm('Delete this product?')) return;
+      const products = store.get('products', []);
+      store.set('products', products.filter(p=>p.id!==id));
+      toast('Product deleted','danger');
+      updateKPIs();
+      renderProducts();
+    }
+
+    // ==== Categories Manager ==================================================
+    function openCategoryManager(){
+      const modalEl = document.getElementById('categoryModal');
+      const list = document.getElementById('categoriesList');
+      const cats = store.get('categories', []);
+      list.innerHTML = cats.map(c=>{
+        const subs = (c.subs||[]).map(s=>`<span class='badge text-bg-secondary me-1 mb-1'>${s.name}</span>`).join('');
+        return `<div class='list-group-item'>
+          <div class='d-flex justify-content-between align-items-start'>
+            <div>
+              <div class='fw-semibold'>${c.name}</div>
+              <div class='mt-1'>${subs || '<span class="text-secondary">No subcategories</span>'}</div>
+            </div>
+            <div class='ms-2'>
+              <button class='btn btn-sm btn-outline-secondary' onclick='promptAddSub("${c.id}")'><i class="fa-solid fa-plus"></i> Sub</button>
+              <button class='btn btn-sm btn-outline-danger' onclick='removeCategory("${c.id}")'><i class="fa-regular fa-trash-can"></i></button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+      bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+    function promptAddSub(catId){
+      const name = prompt('Subcategory name'); if(!name) return;
+      const cats = store.get('categories', []);
+      const c = cats.find(x=>x.id===catId); c.subs.push({id: crypto.randomUUID(), name});
+      store.set('categories', cats); openCategoryManager(); fillCategoryFilters();
+      toast('Subcategory added');
+    }
+    function removeCategory(catId){
+      if(!confirm('Delete this category? (Products will remain linked to old id)')) return;
+      const cats = store.get('categories', []).filter(c=>c.id!==catId);
+      store.set('categories', cats); openCategoryManager(); fillCategoryFilters();
+      toast('Category removed','danger');
+    }
+
+    document.getElementById('btnAddCategory').addEventListener('click', ()=>{
+      const inp = document.getElementById('newCategoryName');
+      const name = (inp.value||'').trim(); if(!name) return;
+      const cats = store.get('categories', []); cats.push({id: crypto.randomUUID(), name, subs:[]});
+      store.set('categories', cats); inp.value=''; openCategoryManager(); fillCategoryFilters();
+      toast('Category added');
+    });
+
+    // ==== Orders ==============================================================
+    function renderOrders(){
+      const orders = store.get('orders', []);
+      const customers = store.get('customers', []);
+      const status = document.getElementById('filterOrderStatus').value;
+      const tbody = document.getElementById('ordersTbody');
+      const list = orders.filter(o=> !status || o.status===status).sort((a,b)=> b.date - a.date);
+      tbody.innerHTML = list.map(o=>{
+        const cust = customers.find(c=>c.id===o.customerId);
+        return `<tr>
+          <td>${o.id.slice(0,6)}</td>
+          <td>${cust?.name||'—'}</td>
+          <td>${fmtDate(o.date)}</td>
+          <td>${fmtBDT(o.total)}</td>
+          <td>
+            <select class='form-select form-select-sm w-auto' onchange="changeOrderStatus('${o.id}', this.value)">
+              ${['Pending','Shipped','Delivered','Cancelled'].map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td class='text-end'>
+            <button class='btn btn-sm btn-outline-secondary' onclick="openOrder('${o.id}')"><i class='fa-regular fa-eye'></i></button>
+          </td>
+        </tr>`
+      }).join('');
+    }
+
+    function changeOrderStatus(id, value){
+      const orders = store.get('orders', []);
+      const i = orders.findIndex(o=>o.id===id); if(i<0) return;
+      orders[i].status = value; store.set('orders', orders);
+      toast('Order status updated');
+      updateKPIs(); renderRecentOrders();
+    }
+
+    function openOrder(id){
+      const orders = store.get('orders', []);
+      const customers = store.get('customers', []);
+      const products = store.get('products', []);
+      const o = orders.find(x=>x.id===id);
+      const c = customers.find(x=>x.id===o.customerId);
+      const lines = o.items.map(it=>{
+        const p = products.find(pp=>pp.id===it.productId);
+        return `<tr><td>${p?.name||'—'}</td><td>${it.qty}</td><td>${fmtBDT(it.price)}</td><td>${fmtBDT(it.qty*it.price)}</td></tr>`; 
+      }).join('');
+      const html = `
+        <div class='mb-2'><strong>Order #</strong> ${o.id}<br><strong>Date:</strong> ${fmtDate(o.date)} <span class='ms-2 badge text-bg-${badgeForStatus(o.status)}'>${o.status}</span></div>
+        <div class='mb-2'><strong>Customer:</strong> ${c?.name||'—'} &middot; ${c?.email||''} &middot; ${c?.phone||''}</div>
+        <div class='table-responsive'><table class='table'>
+          <thead class='table-light'><tr><th>Product</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr></thead>
+          <tbody>${lines}</tbody>
+          <tfoot><tr><th colspan='3' class='text-end'>Total</th><th>${fmtBDT(o.total)}</th></tr></tfoot>
+        </table></div>`;
+      document.getElementById('orderDetails').innerHTML = html;
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('orderModal')).show();
+    }
+
+    // ==== Customers ===========================================================
+    function renderCustomers(){
+      const customers = store.get('customers', []);
+      const tbody = document.getElementById('customersTbody');
+      tbody.innerHTML = customers.map(c=>`
+        <tr>
+          <td>${c.name}</td>
+          <td>${c.email}</td>
+          <td>${c.phone}</td>
+          <td><span class='badge text-bg-primary'>${c.orders}</span></td>
+          <td>${fmtBDT(c.spent)}</td>
+          <td class='text-end'><button class='btn btn-sm btn-outline-secondary' onclick="openCustomer('${c.id}')"><i class='fa-regular fa-id-card'></i></button></td>
+        </tr>
+      `).join('');
+    }
+
+    function openCustomer(id){
+      const c = store.get('customers', []).find(x=>x.id===id);
+      const orders = store.get('orders', []).filter(o=>o.customerId===id);
+      const html = `
+        <div class='mb-2'><strong>${c.name}</strong></div>
+        <div class='mb-2 small text-secondary'>${c.email} · ${c.phone}</div>
+        <div class='mb-2'>Address: ${c.address||'—'}</div>
+        <div class='mb-2'>Orders: <span class='badge text-bg-primary'>${orders.length}</span></div>
+        <ul class='list-group list-group-flush'>
+          ${orders.map(o=>`<li class='list-group-item d-flex justify-content-between'><span>${o.id.slice(0,6)} · ${fmtDate(o.date)}</span><strong>${fmtBDT(o.total)}</strong></li>`).join('')}
+        </ul>`;
+      document.getElementById('customerDetails').innerHTML = html;
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('customerModal')).show();
+    }
+
+    // ==== Navigation & Global Search =========================================
+    function showView(view){
+      document.querySelectorAll('[data-view]').forEach(a=> a.classList.toggle('active', a.dataset.view===view));
+      document.querySelectorAll('[id^=view-]').forEach(s=> s.classList.add('d-none'));
+      document.getElementById(`view-${view}`).classList.remove('d-none');
+      if(view==='dashboard') renderDashboard();
+      if(view==='products'){ fillCategoryFilters(); renderProducts(); }
+      if(view==='orders') renderOrders();
+      if(view==='customers') renderCustomers();
+    }
+
+    document.querySelectorAll('.sidebar [data-view], [data-view="orders"]').forEach(el=>{
+      el.addEventListener('click', (e)=>{ e.preventDefault(); showView(el.dataset.view); closeSidebar(); });
+    });
+
+    document.getElementById('btnSidebar').addEventListener('click', ()=>{
+      document.body.classList.toggle('sidebar-open');
+    });
+    document.getElementById('backdrop').addEventListener('click', ()=>{ closeSidebar(); });
+    function closeSidebar(){ document.body.classList.remove('sidebar-open'); }
+
+    document.getElementById('btnAddProduct').addEventListener('click', ()=> openProductModal());
+    document.getElementById('btnManageCategories').addEventListener('click', openCategoryManager);
+
+    document.getElementById('productSearch').addEventListener('input', renderProducts);
+    document.getElementById('filterCategory').addEventListener('change', renderProducts);
+    document.getElementById('filterStock').addEventListener('change', renderProducts);
+
+    document.getElementById('filterOrderStatus').addEventListener('change', renderOrders);
+
+    document.getElementById('globalSearch').addEventListener('input', (e)=>{
+      const q = (e.target.value||'').toLowerCase().trim();
+      const products = store.get('products', []);
+      const orders = store.get('orders', []);
+      const customers = store.get('customers', []);
+      if(!q){ return; }
+      // naive: search products first
+      const pHit = products.find(p=> p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q));
+      if(pHit){ showView('products'); document.getElementById('productSearch').value = q; renderProducts(); return; }
+      const cHit = customers.find(c=> c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q));
+      if(cHit){ showView('customers'); return; }
+      if(orders.find(o=> (''+o.total).includes(q))){ showView('orders'); return; }
+    });
+
+    // ==== Boot ================================================================
+    seedIfNeeded();
+    showView('dashboard');
+  </script>
+</body>
+</html>
